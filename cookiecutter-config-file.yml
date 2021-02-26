@@ -1,0 +1,10 @@
+# This file contains values from Cookiecutter
+
+default_context:
+  project_name: "doh"
+  project_description: "Make docker interactive usage less painful"
+  organization: "Vsevolod Poletaev"
+  license: "GNU GPL v3.0"
+  version: "0.1.0"
+  github_name: "hexfaker"
+  email: "poletaev.va _at_ gmail.com"

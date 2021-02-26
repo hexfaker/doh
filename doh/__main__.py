@@ -60,7 +60,7 @@ def volume_args(config: Config, context: Context):
 
 def get_default_args(config: Config, context: Context):
     res = [
-        f"--runtime=nvidia --ipc=host --network=host --pid=host"
+        f"--ipc=host --network=host --pid=host"
     ]
 
     if config.workdir_from_host:
@@ -99,20 +99,26 @@ def run_docker_cli(args: str, exec=False):
     else:
         subprocess.run(args)
 
-
-@app.command(context_settings={"ignore_unknown_options": True})
-def run(default_cmd: bool = False, extra_args: List[str] = []):
-    if not default_cmd:
-        extra_args = ["bash --norc", *extra_args]
-
+@app.command(context_settings={"ignore_unknown_options": True}, add_help_option=False)
+def exec(
+    cmd: List[str],
+    build: bool = True,
+):
     context = Context()
     image_name = f"{context.project_name}:latest"
 
-    run_docker_cli(f"build . -t {image_name}")
+    if build:
+        run_docker_cli(f"build . -t {image_name}")
+
     config = load_config()
     run_docker_cli(
-        form_cli_args(config, context, extra_args)
+        form_cli_args(config, context, cmd)
     )
+
+@app.command()
+def sh():
+    exec(["bash --norc"])
+
 
 
 if __name__ == "__main__":

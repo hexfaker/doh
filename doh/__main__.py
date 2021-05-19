@@ -97,7 +97,7 @@ def run_docker_cli(args: str, exec=False):
     if exec:
         os.execv(args[0], args)
     else:
-        subprocess.run(args)
+        subprocess.run(args, check=True)
 
 @app.command(context_settings={"ignore_unknown_options": True}, add_help_option=False)
 def exec(

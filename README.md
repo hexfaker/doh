@@ -18,6 +18,11 @@ Make docker interactive usage less painful
 
 ## Very first steps
 
+### Install 
+```shell
+pipx install 'git+ssh://git@github.com/hexfaker/doh.git'
+```
+
 ### Initial
 
 1. Initialize `git` inside your repo:

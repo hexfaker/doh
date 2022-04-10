@@ -9,4 +9,3 @@ ssh-server:
     RUN make
 
     SAVE ARTIFACT /app/remote AS LOCAL doh/bin/ssh-server
-

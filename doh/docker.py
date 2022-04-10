@@ -125,13 +125,10 @@ def form_cli_args(
     return cli_args
 
 
-def run_docker_cli(args: str, exec: bool = False) -> None:
+def run_docker_cli(args: str) -> None:
     argv = ["docker"] + shlex.split(args)
 
-    if exec:
-        os.execv(args[0], argv)
-    else:
-        subprocess.run(argv)
+    subprocess.run(argv)
 
 
 SSH_SERVER_KEYS_PATH = "/var/okteto/remote/authorized_keys"

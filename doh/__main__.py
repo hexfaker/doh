@@ -1,17 +1,20 @@
-import logging
 from typing import List
 
-import typer
+import logging
 
+import typer
+from doh.ssh import run_ssh_server
 from doh.utils import setup_logging
-from .config import Context, load_config
-from .docker import exec_in_docker
+
+from .config import Context, load_final_config
+from .docker import build_image, form_cli_args, run_docker_cli
 from .init import init
 
 setup_logging()
 
 LOG = logging.getLogger(__file__)
 app = typer.Typer()
+
 
 @app.command(
     context_settings={"ignore_unknown_options": True}, add_help_option=False
@@ -20,33 +23,30 @@ def exec(
     cmd: List[str],
     build: bool = True,
 ) -> None:
-    context = Context()
-    exec_in_docker(build, cmd, context)
+    context = Context.create_for_cwd()
+    config = load_final_config(context)
+    if build:
+        build_image(config, context)
+    run_docker_cli(form_cli_args(config, context, cmd))
 
 
-@app.command(name="init", help="Creates dohrc.toml if doesn't exist yet, populates it with global and current host section")
+@app.command(
+    name="init",
+    help="Creates dohrc.toml if doesn't exist yet, populates it with global and current host section",
+)
 def init_cmd():
-    init(Context())
+    init(Context.create_for_cwd())
+
 
 @app.command()
 def sh():
-    exec(["bash --norc"])
+    config = load_final_config(Context.create_for_cwd())
+    exec([config.sh_cmd])
 
 
 @app.command()
-def ssh():
-    context = Context()
-    config = load_config()
-    typer.secho("Your SSH config is below. Append it to your ~/.ssh/config\n\n", fg=typer.colors.GREEN)
-    typer.secho(
-        f"Host {context.project_name}__{context.hostname}\n"
-        f"    Hostname localhost\n"
-        f"    Port {config.ssh_port}\n"
-        f"    ProxyJump <this-server-ssh-hostname>\n"
-        f"    HostKeyAlgorithms=+ssh-rsa\n",
-        fg=typer.colors.BRIGHT_CYAN
-    )
-    exec(["/.doh_bin/ssh-server"])
+def ssh(build: bool = True) -> None:
+    run_ssh_server(Context.create_for_cwd(), build)
 
 
 if __name__ == "__main__":

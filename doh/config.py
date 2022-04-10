@@ -1,15 +1,17 @@
-import logging
-import random
+from typing import Dict, List, Optional, TypeVar
+
 import collections.abc
+import getpass
+import logging
 import socket
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
-import getpass
 
+import envtoml
 import pydantic
 import toml
 from pydantic import BaseModel
+from toml import TomlPathlibEncoder
 
 LOG = logging.getLogger(__name__)
 
@@ -47,7 +49,10 @@ def dict_merge(*args, add_keys=True):
     return rtn_dct
 
 
-def merge_models(m1: BaseModel, m2: BaseModel):
+_ModelType = TypeVar("_ModelType", bound=BaseModel)
+
+
+def merge_models(m1: _ModelType, m2: _ModelType) -> _ModelType:
     d1 = m1.dict()
     d2 = m2.dict(exclude_defaults=True)
 
@@ -59,26 +64,48 @@ class Parameters(pydantic.BaseModel):
     bind_paths: List[str] = []
 
 
+class FakeHomeParameters(BaseModel):
+    root: Path = Path(".doh/home")
+    real_paths: List[str] = []
+
+
 class Config(pydantic.BaseModel):
     hosts: Dict[str, Parameters] = {}
     workdir_from_host: bool = True
     ssh_port: int = 0
     image_build_command: str = "docker build . -t {image_name}"
     use_local_config: bool = False
+    environment: Dict[str, str] = {}
+    sh_cmd: str = "bash"
+    fake_home: Optional[FakeHomeParameters] = FakeHomeParameters(
+        root=Path("./.doh/home")
+    )
 
     def is_nontrivial(self):
-        return len(self.dict(exclude_unset=True)) == 0
+        return len(self.dict(exclude_unset=True)) > 0
 
 
 class Context(pydantic.BaseModel):
+    project_dir: Path
+    project_name: str
     hostname: str = socket.gethostname()
-    cwd: Path = Path.cwd()
-    project_name: str = Path.cwd().name
     username: str = getpass.getuser()
 
     @property
     def image_name(self):
         return f"{self.project_name}-{self.username}"
+
+    @property
+    def environment_id(self):
+        return f"{self.project_name}__{self.hostname}"
+
+    @classmethod
+    def create_for_path(cls, path: Path) -> "Context":
+        return cls(project_dir=path, project_name=path.name.lower())
+
+    @classmethod
+    def create_for_cwd(cls) -> "Context":
+        return cls.create_for_path(Path.cwd())
 
 
 class ConfigType(Enum):
@@ -95,20 +122,29 @@ class ConfigType(Enum):
         raise NotImplemented
 
 
-def load_config(type: ConfigType = ConfigType.FULL) -> Config:
+def load_config(
+    context: Context,
+    type: ConfigType = ConfigType.FULL,
+    interpolate_env: bool = True,
+) -> Config:
+    if interpolate_env:
+        load_fn = envtoml.load
+    else:
+        load_fn = toml.load
+
     if type in [ConfigType.FULL, ConfigType.GLOBAL]:
-        conf_path = Path.cwd() / ConfigType.GLOBAL.file_name()
+        conf_path = context.project_dir / ConfigType.GLOBAL.file_name()
         if conf_path.is_file():
-            config = Config.construct(**toml.load(conf_path))
+            config = Config.construct(**load_fn(conf_path))
         else:
             config = Config()
 
     if (
         type == ConfigType.FULL and config.use_local_config
     ) or type == ConfigType.LOCAL:
-        conf_path = Path.cwd() / ConfigType.LOCAL.file_name()
+        conf_path = context.project_dir / ConfigType.LOCAL.file_name()
         if conf_path.is_file():
-            local_config = Config.construct(**toml.load(conf_path))
+            local_config = Config.construct(**load_fn(conf_path))
         else:
             local_config = Config()
 
@@ -125,8 +161,30 @@ def load_config(type: ConfigType = ConfigType.FULL) -> Config:
     return config
 
 
-def save_config(config: Config, type: ConfigType) -> None:
-    conf_path = Path.cwd() / type.file_name()
+def load_final_config(
+    context: Context,
+) -> Config:
+    config = load_config(context)
+
+    if "all" not in config.hosts:
+        config.hosts["all"] = Parameters()
+
+    if context.hostname in config.hosts:
+        config.hosts["all"] = merge_models(
+            config.hosts["all"], config.hosts[context.hostname]
+        )
+
+    config.hosts[context.hostname] = config.hosts["all"]
+
+    return config
+
+
+class TomlConfigEncoder(TomlPathlibEncoder):  # type: ignore
+    pass
+
+
+def save_config(context: Context, config: Config, type: ConfigType) -> None:
+    conf_path = context.project_dir / type.file_name()
 
     if type == ConfigType.GLOBAL:
         dct = config.dict()
@@ -134,4 +192,4 @@ def save_config(config: Config, type: ConfigType) -> None:
         dct = config.dict(exclude_defaults=True)
 
     with conf_path.open("w") as f:
-        toml.dump(dct, f)
+        toml.dump(dct, f, encoder=TomlConfigEncoder())

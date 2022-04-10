@@ -1,13 +1,14 @@
+from typing import List
+
 import logging
 import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import List
 
 import typer
-
-from doh.config import Config, Context, load_config
+from click.exceptions import Exit
+from doh.config import Config, Context
 
 IMAGE_NAME_PLACEHOLDER = "{image_name}"
 
@@ -30,29 +31,29 @@ def volume_args(config: Config, context: Context) -> List[str]:
             for source, target in map(lambda s: s.split(":"), host_bind_paths)
         ]
         volumes += [f"--volume {v}" for v in resolved_paths_volumes]
-    volumes.append(f"--volume {context.cwd}:{context.cwd}")
+    volumes.append(f"--volume {context.project_dir}:{context.project_dir}")
 
     return volumes
 
 
 def get_default_args(config: Config, context: Context) -> List[str]:
-    res = [f"--ipc=host --pid=host"]
+    res = [f"--ipc=host --pid=host", f"--hostname {context.environment_id}"]
 
     if config.workdir_from_host:
-        res.append(f"--workdir '{context.cwd}'")
+        res.append(f"--workdir '{context.project_dir}'")
 
     return res
 
 
-def connect_home(config: Config, context: Context) -> List[str]:
-    home_path = os.environ["HOME"]
-
-    return [f"--volume {home_path}:{home_path}", f"-e HOME={home_path}"]
+def env_args(config: Config, context: Context) -> List[str]:
+    return [f'--env {k}="{v}"' for k, v in config.environment.items()]
 
 
 def prepare_for_ssh_server(config: Config, context: Context) -> List[str]:
     if config.ssh_port == 0:
-        typer.secho("SSH port is not configured. Run `doh init`", fg=typer.colors.RED)
+        typer.secho(
+            "SSH port is not configured. Run `doh init`", fg=typer.colors.RED
+        )
         raise typer.Exit()
 
     bin_package_dir = (Path(__file__).parent / "bin").resolve()
@@ -71,36 +72,73 @@ def prepare_for_ssh_server(config: Config, context: Context) -> List[str]:
     return res
 
 
+def prepare_home_args(config: Config, context: Context) -> List[str]:
+    res: List[str] = []
+    if config.fake_home is None:
+        return res
+    fake_home_path = config.fake_home.root.resolve()
+    real_home_path = Path.home()
+
+    if not fake_home_path.is_dir():
+        LOG.info("Initialize fake home")
+        fake_home_path.mkdir(parents=True)
+
+    res.append(f"--volume {fake_home_path}:{real_home_path}")
+    res.append(f"--env HOME={real_home_path}")
+
+    for f in config.fake_home.real_paths:
+        full_f = real_home_path / f
+
+        if not full_f.exists():
+            typer.secho(f"{full_f} do not exist, can't start container")
+            raise Exit(1)
+
+        # Prevent required paths creation with root ownership
+        if full_f.is_file():
+            (fake_home_path / f).touch(exist_ok=True)
+        elif full_f.is_dir():
+            (fake_home_path / f).mkdir(exist_ok=True)
+
+        res.append(f"--volume {full_f}:{full_f}")
+
+    return res
+
+
 def form_cli_args(
-    config: Config, context: Context, extra_args: List[str]
+    config: Config, context: Context, extra_args: List[str], ssh: bool = False
 ) -> str:
     run_args = ["--rm -it"]
     run_args += user_args()
     run_args += volume_args(config, context)
     run_args += get_default_args(config, context)
-    run_args += connect_home(config, context)
-    run_args += prepare_for_ssh_server(config, context)
 
-    run_args = " ".join(run_args)
-    cli_args = f"run {run_args} {context.project_name} {' '.join(extra_args)}"
+    if ssh:
+        run_args += prepare_for_ssh_server(config, context)
+
+    run_args += prepare_home_args(config, context)
+
+    run_args += env_args(config, context)
+
+    run_args_cat = " ".join(run_args)
+    cli_args = f"run {run_args_cat} {context.image_name} {' '.join(extra_args)}"
     LOG.debug(cli_args)
     return cli_args
 
 
 def run_docker_cli(args: str, exec: bool = False) -> None:
-    args = ["docker"] + shlex.split(args)
+    argv = ["docker"] + shlex.split(args)
 
     if exec:
-        os.execv(args[0], args)
+        os.execv(args[0], argv)
     else:
-        subprocess.run(args)
+        subprocess.run(argv)
 
 
 SSH_SERVER_KEYS_PATH = "/var/okteto/remote/authorized_keys"
 SSH_SERVER_DEFAULT_PORT = 2222
 
 
-def build_image(config: Config, context: Context):
+def build_image(config: Config, context: Context) -> None:
     image_name = f"{context.image_name}:latest"
 
     if IMAGE_NAME_PLACEHOLDER not in config.image_build_command:
@@ -113,10 +151,3 @@ def build_image(config: Config, context: Context):
     )
 
     subprocess.run(shlex.split(build_cmd), check=True)
-
-
-def exec_in_docker(build, cmd, context):
-    config = load_config()
-    if build:
-        build_image(config, context)
-    run_docker_cli(form_cli_args(config, context, cmd))

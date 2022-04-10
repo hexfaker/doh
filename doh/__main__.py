@@ -17,9 +17,11 @@ app = typer.Typer()
 
 
 @app.command(
-    context_settings={"ignore_unknown_options": True}, add_help_option=False
+    name="exec",
+    context_settings={"ignore_unknown_options": True},
+    add_help_option=False,
 )
-def exec(
+def exec_cmd(
     cmd: List[str],
     build: bool = True,
 ) -> None:
@@ -41,7 +43,7 @@ def init_cmd():
 @app.command()
 def sh():
     config = load_final_config(Context.create_for_cwd())
-    exec([config.sh_cmd])
+    exec_cmd([config.sh_cmd])
 
 
 @app.command()

@@ -8,7 +8,7 @@ from .env import Env
 SSH_SERVER_IMAGE_TAG = "okteto/remote:0.4.2"
 SSH_SERVER_EXECUTABLE_PATH = "/usr/local/bin/remote"
 CACHE_KEY = hashlib.md5(
-    f"doh-okteto-cache-{SSH_SERVER_IMAGE_TAG}".encode(), usedforsecurity=False
+    f"doh-okteto-cache-{SSH_SERVER_IMAGE_TAG}".encode()
 ).hexdigest()
 
 

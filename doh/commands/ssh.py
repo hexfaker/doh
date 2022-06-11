@@ -32,7 +32,7 @@ def run_ssh_server(context: Context, build: bool) -> None:
         fg=typer.colors.BRIGHT_CYAN,
     )
     cmd = ["/doh/ssh-server"]
-    run_args = docker_run_args_from_project(config, context)
+    run_args = docker_run_args_from_project(context)
     run_args += prepare_run_args_for_ssh_server(config, context)
     run_docker_run(run_args, context.image_name, cmd)
 

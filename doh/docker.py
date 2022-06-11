@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Sequence, Union
+from typing import Any, List, NamedTuple, Sequence, Union
 
 import logging
 import os
@@ -23,7 +23,7 @@ def user_args():
 
 
 def volume_args(config: Config, context: Context) -> List[str]:
-    volumes = []
+    volumes: List[Any] = []
     if context.hostname in config.hosts:
         host_bind_paths = config.hosts[context.hostname].bind_paths
         resolved_paths_volumes = [
@@ -40,7 +40,7 @@ def get_default_args(config: Config, context: Context) -> List[str]:
     res = ["--ipc=host", "--pid=host", "--hostname", "context.environment_id"]
 
     if config.workdir_from_host:
-        res += ["--workdir", context.project_dir]
+        res += ["--workdir", str(context.project_dir)]
 
     return res
 
@@ -83,16 +83,19 @@ def prepare_home_args(config: Config, context: Context) -> List[str]:
     return res
 
 
-def docker_run_args_from_project(config, context, request_tty: bool = True):
+def docker_run_args_from_project(
+    project: Context, request_tty: bool = True
+) -> List[str]:
+    config = project.config
     run_args = ["--rm"]
 
     if request_tty:
         run_args += ["--tty", "--interactive"]
     run_args += user_args()
-    run_args += volume_args(config, context)
-    run_args += get_default_args(config, context)
-    run_args += prepare_home_args(config, context)
-    run_args += env_args(config, context)
+    run_args += volume_args(config, project)
+    run_args += get_default_args(config, project)
+    run_args += prepare_home_args(config, project)
+    run_args += env_args(config, project)
     return run_args
 
 
@@ -107,7 +110,7 @@ def run_docker_run(
     run_args: List[str],
     image_name: str,
     cmd: Union[List[str], str],
-):
+) -> None:
     cmd = shlex.join(map(str, cmd)) if not isinstance(cmd, str) else cmd
     run_args_cat = shlex.join(map(str, run_args))
     run_docker_cli(f"run {run_args_cat} {image_name} {cmd}")

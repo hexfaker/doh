@@ -106,7 +106,7 @@ Articles:
 
 For your development we've prepared:
 
-- Supports for `Python 3.7` and higher.
+- Supports for `Python 3.8` and higher.
 - [`Poetry`](https://python-poetry.org/) as the dependencies manager. See configuration in [`pyproject.toml`](https://github.com/hexfaker/doh/blob/master/pyproject.toml) and [`setup.cfg`](https://github.com/hexfaker/doh/blob/master/setup.cfg).
 - Power of [`black`](https://github.com/psf/black), [`isort`](https://github.com/timothycrosley/isort) and [`pyupgrade`](https://github.com/asottile/pyupgrade) formatters.
 - Ready-to-use [`pre-commit`](https://pre-commit.com/) hooks with formatters above.

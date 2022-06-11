@@ -5,6 +5,7 @@ import dataclasses
 import getpass
 import logging
 import socket
+import sys
 from enum import Enum
 from functools import cached_property
 from pathlib import Path

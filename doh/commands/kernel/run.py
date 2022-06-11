@@ -1,10 +1,11 @@
-from typing import IO, TextIO
+import typing
+from typing import IO, List, TextIO, Tuple
 
 import json
 import os
 from os import PathLike
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, _TemporaryFileWrapper
 
 from doh.config import Context
 from doh.docker import build_image, docker_run_args_from_project, run_docker_run
@@ -16,22 +17,21 @@ IPYKERNEL_CMD = (
 
 
 def patch_connection_ip(
-    connection_file: Path, file: TextIO, ip: str = "0.0.0.0"
-):
+    connection_file: Path, file: IO[str], ip: str = "0.0.0.0"
+) -> None:
     """Set/update ip field in connection file"""
     connection = json.loads(connection_file.read_text())
-    if "ip" in connection:
-        del connection["ip"]
+    connection["ip"] = ip
     file.write(json.dumps(connection))
     file.flush()
 
 
 def docker_run_args_for_kernel(
     orig_conn_spec_path: Path, patched_conn_spec_path: str
-):
+) -> List[str]:
     ip, ports = parse_conn_spec(orig_conn_spec_path)
 
-    args = sum((["--publish", f"{ip}:{p}:{p}"] for p in ports), [])
+    args: List[str] = sum((["--publish", f"{ip}:{p}:{p}"] for p in ports), [])
     args += [
         "--volume",
         f"{patched_conn_spec_path}:{KERNEL_CONN_SPEC_CONTAINER_PATH}",
@@ -39,7 +39,7 @@ def docker_run_args_for_kernel(
     return args
 
 
-def parse_conn_spec(path: Path):
+def parse_conn_spec(path: Path) -> Tuple[str, List[int]]:
     conn_spec = json.loads(path.read_text())
     return conn_spec.get("ip", "127.0.0.1"), [
         port
@@ -48,14 +48,14 @@ def parse_conn_spec(path: Path):
     ]
 
 
-def run_kernel(project: Context, kernel_conn_spec_path: Path, build: bool):
+def run_kernel(
+    project: Context, kernel_conn_spec_path: Path, build: bool
+) -> None:
     os.chdir(project.project_dir)
     if build:
         build_image(project.config, project)
 
-    run_args = docker_run_args_from_project(
-        project.config, project, request_tty=False
-    )
+    run_args = docker_run_args_from_project(project, request_tty=False)
 
     with NamedTemporaryFile(
         "w",

@@ -33,7 +33,7 @@ def exec_cmd(
     if build:
         build_image(config, context)
     run_docker_run(
-        docker_run_args_from_project(config, context), context.image_name, cmd
+        docker_run_args_from_project(context), context.image_name, cmd
     )
 
 
@@ -62,7 +62,7 @@ def ssh(build: bool = True) -> None:
 
 
 @app.command()
-def kernel_install(language: str = "python"):
+def kernel_install(language: str = "python") -> None:
     project = Context.create_for_cwd()
     kernel.install(project, language)
 
@@ -72,7 +72,7 @@ def kernel_run(
     project_root: Path = typer.Argument(..., dir_okay=True),
     kernel_conn_spec_path: Path = typer.Argument(..., file_okay=True),
     build: bool = True,
-):
+) -> None:
     kernel.run_kernel(
         Context.create_for_path(project_root), kernel_conn_spec_path, build
     )

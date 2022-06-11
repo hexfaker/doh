@@ -8,7 +8,6 @@
 [![Dependencies Status](https://img.shields.io/badge/dependencies-up%20to%20date-brightgreen.svg)](https://github.com/hexfaker/doh/pulls?utf8=%E2%9C%93&q=is%3Apr%20author%3Aapp%2Fdependabot)
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Security: bandit](https://img.shields.io/badge/security-bandit-green.svg)](https://github.com/PyCQA/bandit)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/hexfaker/doh/blob/master/.pre-commit-config.yaml)
 [![Semantic Versions](https://img.shields.io/badge/%F0%9F%9A%80-semantic%20versions-informational.svg)](https://github.com/hexfaker/doh/releases)
 [![License](https://img.shields.io/github/license/hexfaker/doh)](https://github.com/hexfaker/doh/blob/master/LICENSE)
@@ -114,7 +113,7 @@ For your development we've prepared:
 - Type checks with the configured [`mypy`](https://mypy.readthedocs.io).
 - Testing with [`pytest`](https://docs.pytest.org/en/latest/).
 - Docstring checks with [`darglint`](https://github.com/terrencepreilly/darglint).
-- Security checks with [`safety`](https://github.com/pyupio/safety) and [`bandit`](https://github.com/PyCQA/bandit).
+- Security checks with [`safety`](https://github.com/pyupio/safety).
 - Well-made [`.editorconfig`](https://github.com/hexfaker/doh/blob/master/.editorconfig), [`.dockerignore`](https://github.com/hexfaker/doh/blob/master/.dockerignore), and [`.gitignore`](https://github.com/hexfaker/doh/blob/master/.gitignore). You don't have to worry about those things.
 
 For building and deployment:
@@ -205,7 +204,7 @@ make install NO_PRE_COMMIT=1
 make check-safety
 ```
 
-This command launches a `Poetry` and `Pip` integrity check as well as identifies security issues with `Safety` and `Bandit`. By default, the build will not crash if any of the items fail. But you can set `STRICT=1` for the entire build, or you can configure strictness for each item separately.
+This command launches a `Poetry` and `Pip` integrity check as well as identifies security issues with `Safety`. By default, the build will not crash if any of the items fail. But you can set `STRICT=1` for the entire build, or you can configure strictness for each item separately.
 
 ```bash
 make check-safety STRICT=1

@@ -20,7 +20,8 @@ def patch_connection_ip(
 ):
     """Set/update ip field in connection file"""
     connection = json.loads(connection_file.read_text())
-    connection["ip"] = ip
+    if "ip" in connection:
+        del connection["ip"]
     file.write(json.dumps(connection))
     file.flush()
 

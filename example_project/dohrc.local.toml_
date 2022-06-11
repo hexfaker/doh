@@ -1,6 +1,0 @@
-ssh_port = 22114
-
-[environment]
-TEST = "$HOME"
-
-[hosts.dell-hexfaker]

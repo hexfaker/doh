@@ -1,5 +1,5 @@
+from doh.commands.init import init
 from doh.config import Config, Context, Parameters, load_config
-from doh.init import init
 
 
 def test_init_empty(context: Context) -> None:

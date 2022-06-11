@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, NamedTuple, Sequence, Union
 
 import logging
 import os
@@ -19,7 +19,7 @@ def user_args():
     uid = os.getuid()
     gid = os.getgid()
 
-    return [f"--user {uid}:{gid}"]
+    return ["--user", f"{uid}:{gid}"]
 
 
 def volume_args(config: Config, context: Context) -> List[str]:
@@ -30,46 +30,25 @@ def volume_args(config: Config, context: Context) -> List[str]:
             f"{os.path.realpath(source)}:{target}"
             for source, target in map(lambda s: s.split(":"), host_bind_paths)
         ]
-        volumes += [f"--volume {v}" for v in resolved_paths_volumes]
-    volumes.append(f"--volume {context.project_dir}:{context.project_dir}")
+        volumes += sum((["--volume", v] for v in resolved_paths_volumes), [])
+    volumes += ["--volume", f"{context.project_dir}:{context.project_dir}"]
 
     return volumes
 
 
 def get_default_args(config: Config, context: Context) -> List[str]:
-    res = [f"--ipc=host --pid=host", f"--hostname {context.environment_id}"]
+    res = ["--ipc=host", "--pid=host", "--hostname", "context.environment_id"]
 
     if config.workdir_from_host:
-        res.append(f"--workdir '{context.project_dir}'")
+        res += ["--workdir", context.project_dir]
 
     return res
 
 
 def env_args(config: Config, context: Context) -> List[str]:
-    return [f'--env {k}="{v}"' for k, v in config.environment.items()]
-
-
-def prepare_for_ssh_server(config: Config, context: Context) -> List[str]:
-    if config.ssh_port == 0:
-        typer.secho(
-            "SSH port is not configured. Run `doh init`", fg=typer.colors.RED
-        )
-        raise typer.Exit()
-
-    bin_package_dir = (Path(__file__).parent / "bin").resolve()
-    bin_mount_arg = f"--volume {bin_package_dir}:/.doh_bin/:ro"
-
-    port_share_arg = (
-        f"--publish 127.0.0.1:{config.ssh_port}:{SSH_SERVER_DEFAULT_PORT}"
+    return sum(
+        (["--env", f"{k}={v}"] for k, v in config.environment.items()), []
     )
-
-    res = [bin_mount_arg, port_share_arg]
-
-    auth_keys_path = Path.home() / ".ssh/authorized_keys"
-    if auth_keys_path.exists():
-        res.append(f"--volume {auth_keys_path}:{SSH_SERVER_KEYS_PATH}:ro")
-
-    return res
 
 
 def prepare_home_args(config: Config, context: Context) -> List[str]:
@@ -83,8 +62,8 @@ def prepare_home_args(config: Config, context: Context) -> List[str]:
         LOG.info("Initialize fake home")
         fake_home_path.mkdir(parents=True)
 
-    res.append(f"--volume {fake_home_path}:{real_home_path}")
-    res.append(f"--env HOME={real_home_path}")
+    res += ["--volume", f"{fake_home_path}:{real_home_path}"]
+    res += ["--env", f"HOME={real_home_path}"]
 
     for f in config.fake_home.real_paths:
         full_f = real_home_path / f
@@ -99,40 +78,39 @@ def prepare_home_args(config: Config, context: Context) -> List[str]:
         elif full_f.is_dir():
             (fake_home_path / f).mkdir(exist_ok=True)
 
-        res.append(f"--volume {full_f}:{full_f}")
+        res += ["--volume", f"{full_f}:{full_f}"]
 
     return res
 
 
-def form_cli_args(
-    config: Config, context: Context, extra_args: List[str], ssh: bool = False
-) -> str:
-    run_args = ["--rm -it"]
+def docker_run_args_from_project(config, context, request_tty: bool = True):
+    run_args = ["--rm"]
+
+    if request_tty:
+        run_args += ["--tty", "--interactive"]
     run_args += user_args()
     run_args += volume_args(config, context)
     run_args += get_default_args(config, context)
-
-    if ssh:
-        run_args += prepare_for_ssh_server(config, context)
-
     run_args += prepare_home_args(config, context)
-
     run_args += env_args(config, context)
-
-    run_args_cat = " ".join(run_args)
-    cli_args = f"run {run_args_cat} {context.image_name} {' '.join(extra_args)}"
-    LOG.debug(cli_args)
-    return cli_args
+    return run_args
 
 
 def run_docker_cli(args: str) -> None:
+    LOG.debug(args)
     argv = ["docker"] + shlex.split(args)
 
     subprocess.run(argv)
 
 
-SSH_SERVER_KEYS_PATH = "/var/okteto/remote/authorized_keys"
-SSH_SERVER_DEFAULT_PORT = 2222
+def run_docker_run(
+    run_args: List[str],
+    image_name: str,
+    cmd: Union[List[str], str],
+):
+    cmd = shlex.join(map(str, cmd)) if not isinstance(cmd, str) else cmd
+    run_args_cat = shlex.join(map(str, run_args))
+    run_docker_cli(f"run {run_args_cat} {image_name} {cmd}")
 
 
 def build_image(config: Config, context: Context) -> None:

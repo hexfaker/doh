@@ -1,10 +1,12 @@
-from typing import Dict, List, Optional, TypeVar
+from typing import Dict, List, NamedTuple, Optional, TypeVar
 
 import collections.abc
+import dataclasses
 import getpass
 import logging
 import socket
 from enum import Enum
+from functools import cached_property
 from pathlib import Path
 
 import envtoml
@@ -81,9 +83,10 @@ class Config(pydantic.BaseModel):
         return len(self.dict(exclude_unset=True)) > 0
 
 
-class Context(pydantic.BaseModel):
-    project_dir: Path
+@dataclasses.dataclass
+class Context:
     project_name: str
+    project_dir: Path
     hostname: str = socket.gethostname()
     username: str = getpass.getuser()
 
@@ -95,8 +98,13 @@ class Context(pydantic.BaseModel):
     def environment_id(self):
         return f"{self.project_name}__{self.hostname}"
 
+    @cached_property
+    def config(self):
+        return load_final_config(self)
+
     @classmethod
     def create_for_path(cls, path: Path) -> "Context":
+        path = path.resolve()
         return cls(project_dir=path, project_name=path.name.lower())
 
     @classmethod

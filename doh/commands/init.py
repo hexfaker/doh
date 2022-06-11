@@ -1,7 +1,7 @@
 import random
 from pathlib import Path
 
-from .config import (
+from doh.config import (
     Config,
     ConfigType,
     Context,

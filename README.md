@@ -12,345 +12,50 @@
 [![Semantic Versions](https://img.shields.io/badge/%F0%9F%9A%80-semantic%20versions-informational.svg)](https://github.com/hexfaker/doh/releases)
 [![License](https://img.shields.io/github/license/hexfaker/doh)](https://github.com/hexfaker/doh/blob/master/LICENSE)
 
-Make docker interactive usage less painful
+Docker-based development environments. Think of it like conda envs or virtual envs on steroids.
+</div> 
 
-</div>
+## Features
 
-## Very first steps
+- Launch docker containers with strong defaults for interactive usage
+  - workdir mounted by default
+  - files created inside docker have correct ownership
+  - dirs mounted and env vars set can be configured
+  - Selected files from home dir can be propagated to fake home inside docker
+- Run ssh server for remote development in containers without image modification, with docker on remote host support
+- Launch jupyter kernels inside docker (either with vscode ssh development or with external jupyter server)
 
-### Install 
+## Quick start
+1) Ensure your python is at least 3.8
+2) Install doh:
+   * With [pipx](https://pypa.github.io/pipx/) (preferred, dependencies for cli tools installed with pipx are managed independently):
+    ```shell
+    pipx install 'git+https://github.com/hexfaker/doh.git'
+    ```
+   * To your existing virtualenv (your dependencies may conflict with doh's):
+    ```shell
+    pip install 'git+https://github.com/hexfaker/doh.git'
+    ```
+3) Cd into your project dir:
+  ```shell
+  mkdir -p my-simple-torch-project && cd my-simple-torch-project
+  ```
+3) Create `Dockerfile` in it
+```dockerfile
+# my-simple-torch-project/Dockerfile
+FROM pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel
+```
+4) Create to-go doh config
 ```shell
-pipx install 'git+ssh://git@github.com/hexfaker/doh.git'
+doh init
 ```
-
-### Initial
-
-1. Initialize `git` inside your repo:
-
-```bash
-git init
+5) Enjoy
+```shell
+doh sh # Spawns a shell inside container
+doh ssh # Starts ssh server inside container, follow instructions to connect
+doh kernel-install # Writes some configs for jupyterlab(notebook) that allows to run kernel inside container. Requires python and ipython to be present inside container
+doh exec # For advanced usage, runs a single command inside container
 ```
-
-2. If you don't have `Poetry` installed run:
-
-```bash
-make download-poetry
-```
-
-3. Initialize poetry and install `pre-commit` hooks:
-
-```bash
-make install
-```
-
-4. Upload initial code to GitHub (ensure you've run `make install` to use `pre-commit`):
-
-```bash
-git add .
-git commit -m ":tada: Initial commit"
-git branch -M main
-git remote add origin https://github.com/hexfaker/doh.git
-git push -u origin main
-```
-
-### Initial setting up
-
-- Set up [Dependabot](https://docs.github.com/en/github/administering-a-repository/enabling-and-disabling-version-updates#enabling-github-dependabot-version-updates) to ensure you have the latest dependencies.
-- Set up [Stale bot](https://github.com/apps/stale) for automatic issue closing.
-
-### Poetry
-
-All manipulations with dependencies are executed through Poetry. If you're new to it, look through [the documentation](https://python-poetry.org/docs/).
-
-<details>
-<summary>Notes about Poetry</summary>
-<p>
-
-Poetry's [commands](https://python-poetry.org/docs/cli/#commands) are very intuitive and easy to learn, like:
-
-- `poetry add numpy`
-- `poetry run pytest`
-- `poetry build`
-- etc
-
-</p>
-</details>
-
-### Building your package
-
-Building a new version of the application contains steps:
-
-- Bump the version of your package `poetry version <version>`. You can pass the new version explicitly, or a rule such as `major`, `minor`, or `patch`. For more details, refer to the [Semantic Versions](https://semver.org/) standard.
-- Make a commit to `GitHub`.
-- Create a `GitHub release`.
-- And... publish 🙂 `poetry publish --build`
-
-## What's next
-
-Well, that's up to you. I can only recommend the packages and articles that helped me.
-
-Packages:
-
-- [`Typer`](https://github.com/tiangolo/typer) is great for creating CLI applications.
-- [`Rich`](https://github.com/willmcgugan/rich) makes it easy to add beautiful formatting in the terminal.
-- [`FastAPI`](https://github.com/tiangolo/fastapi) is a type-driven asynchronous web framework.
-- [`IceCream`](https://github.com/gruns/icecream) is a little library for sweet and creamy debugging
-
-Articles:
-
-- [Open Source Guides](https://opensource.guide/)
-- [GitHub Actions Documentation](https://help.github.com/en/actions)
-- Maybe you would like to add [gitmoji](https://gitmoji.carloscuesta.me/) to commit names. This is really funny. 😄
-
-## 🚀 Features
-
-For your development we've prepared:
-
-- Supports for `Python 3.8` and higher.
-- [`Poetry`](https://python-poetry.org/) as the dependencies manager. See configuration in [`pyproject.toml`](https://github.com/hexfaker/doh/blob/master/pyproject.toml) and [`setup.cfg`](https://github.com/hexfaker/doh/blob/master/setup.cfg).
-- Power of [`black`](https://github.com/psf/black), [`isort`](https://github.com/timothycrosley/isort) and [`pyupgrade`](https://github.com/asottile/pyupgrade) formatters.
-- Ready-to-use [`pre-commit`](https://pre-commit.com/) hooks with formatters above.
-- Type checks with the configured [`mypy`](https://mypy.readthedocs.io).
-- Testing with [`pytest`](https://docs.pytest.org/en/latest/).
-- Docstring checks with [`darglint`](https://github.com/terrencepreilly/darglint).
-- Security checks with [`safety`](https://github.com/pyupio/safety).
-- Well-made [`.editorconfig`](https://github.com/hexfaker/doh/blob/master/.editorconfig), [`.dockerignore`](https://github.com/hexfaker/doh/blob/master/.dockerignore), and [`.gitignore`](https://github.com/hexfaker/doh/blob/master/.gitignore). You don't have to worry about those things.
-
-For building and deployment:
-
-- `GitHub` integration.
-- [`Makefile`](https://github.com/hexfaker/doh/blob/master/Makefile#L89) for building routines. Everything is already set up for security checks, codestyle checks, code formatting, testing, linting, docker builds, etc. More details at [Makefile summary](#makefile-usage)).
-- [Dockerfile](https://github.com/hexfaker/doh/blob/master/docker/Dockerfile) for your package.
-- `Github Actions` with predefined [build workflow](https://github.com/hexfaker/doh/blob/master/.github/workflows/build.yml) as the default CI/CD.
-- Always up-to-date dependencies with [`@dependabot`](https://dependabot.com/) (You will only [enable it](https://docs.github.com/en/github/administering-a-repository/enabling-and-disabling-version-updates#enabling-github-dependabot-version-updates)).
-- Automatic drafts of new releases with [`Release Drafter`](https://github.com/marketplace/actions/release-drafter). It creates a list of changes based on labels in merged `Pull Requests`. You can see labels (aka `categories`) in [`release-drafter.yml`](https://github.com/hexfaker/doh/blob/master/.github/release-drafter.yml). Works perfectly with [Semantic Versions](https://semver.org/) specification.
-
-For creating your open source community:
-
-- Ready-to-use [Pull Requests templates](https://github.com/hexfaker/doh/blob/master/.github/PULL_REQUEST_TEMPLATE.md) and several [Issue templates](https://github.com/hexfaker/doh/tree/master/.github/ISSUE_TEMPLATE).
-- Files such as: `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md` are generated automatically.
-- [`Stale bot`](https://github.com/apps/stale) that closes abandoned issues after a period of inactivity. (You will only [need to setup free plan](https://github.com/marketplace/stale)). Configuration is [here](https://github.com/hexfaker/doh/blob/master/.github/.stale.yml).
-- [Semantic Versions](https://semver.org/) specification with [`Release Drafter`](https://github.com/marketplace/actions/release-drafter).
-
-## Installation
-
-```bash
-pip install -U doh
-```
-
-or install with `Poetry`
-
-```bash
-poetry add doh
-```
-
-Then you can run
-
-```bash
-doh --help
-```
-
-```bash
-doh --name Roman
-```
-
-or if installed with `Poetry`:
-
-```bash
-poetry run doh --help
-```
-
-```bash
-poetry run doh --name Roman
-```
-
-### Makefile usage
-
-[`Makefile`](https://github.com/hexfaker/doh/blob/master/Makefile) contains many functions for fast assembling and convenient work.
-
-<details>
-<summary>1. Download Poetry</summary>
-<p>
-
-```bash
-make download-poetry
-```
-
-</p>
-</details>
-
-<details>
-<summary>2. Install all dependencies and pre-commit hooks</summary>
-<p>
-
-```bash
-make install
-```
-
-If you do not want to install pre-commit hooks, run the command with the NO_PRE_COMMIT flag:
-
-```bash
-make install NO_PRE_COMMIT=1
-```
-
-</p>
-</details>
-
-<details>
-<summary>3. Check the security of your code</summary>
-<p>
-
-```bash
-make check-safety
-```
-
-This command launches a `Poetry` and `Pip` integrity check as well as identifies security issues with `Safety`. By default, the build will not crash if any of the items fail. But you can set `STRICT=1` for the entire build, or you can configure strictness for each item separately.
-
-```bash
-make check-safety STRICT=1
-```
-
-or only for `safety`:
-
-```bash
-make check-safety SAFETY_STRICT=1
-```
-
-multiple
-
-```bash
-make check-safety PIP_STRICT=1 SAFETY_STRICT=1
-```
-
-> List of flags for `check-safety` (can be set to `1` or `0`): `STRICT`, `POETRY_STRICT`, `PIP_STRICT`, `SAFETY_STRICT`, `BANDIT_STRICT`.
-
-</p>
-</details>
-
-<details>
-<summary>4. Check the codestyle</summary>
-<p>
-
-The command is similar to `check-safety` but to check the code style, obviously. It uses `Black`, `Darglint`, `Isort`, and `Mypy` inside.
-
-```bash
-make check-style
-```
-
-It may also contain the `STRICT` flag.
-
-```bash
-make check-style STRICT=1
-```
-
-> List of flags for `check-style` (can be set to `1` or `0`): `STRICT`, `BLACK_STRICT`, `DARGLINT_STRICT`, `ISORT_STRICT`, `MYPY_STRICT`.
-
-</p>
-</details>
-
-<details>
-<summary>5. Run all the codestyle formaters</summary>
-<p>
-
-Codestyle uses `pre-commit` hooks, so ensure you've run `make install` before.
-
-```bash
-make codestyle
-```
-
-</p>
-</details>
-
-<details>
-<summary>6. Run tests</summary>
-<p>
-
-```bash
-make test
-```
-
-</p>
-</details>
-
-<details>
-<summary>7. Run all the linters</summary>
-<p>
-
-```bash
-make lint
-```
-
-the same as:
-
-```bash
-make test && make check-safety && make check-style
-```
-
-> List of flags for `lint` (can be set to `1` or `0`): `STRICT`, `POETRY_STRICT`, `PIP_STRICT`, `SAFETY_STRICT`, `BANDIT_STRICT`, `BLACK_STRICT`, `DARGLINT_STRICT`, `ISORT_STRICT`, `MYPY_STRICT`.
-
-</p>
-</details>
-
-<details>
-<summary>8. Build docker</summary>
-<p>
-
-```bash
-make docker
-```
-
-which is equivalent to:
-
-```bash
-make docker VERSION=latest
-```
-
-More information [here](https://github.com/hexfaker/doh/tree/master/docker).
-
-</p>
-</details>
-
-<details>
-<summary>9. Cleanup docker</summary>
-<p>
-
-```bash
-make clean_docker
-```
-
-or to remove all build
-
-```bash
-make clean
-```
-
-More information [here](https://github.com/hexfaker/doh/tree/master/docker).
-
-</p>
-</details>
-
-## 📈 Releases
-
-You can see the list of available releases on the [GitHub Releases](https://github.com/hexfaker/doh/releases) page.
-
-We follow [Semantic Versions](https://semver.org/) specification.
-
-We use [`Release Drafter`](https://github.com/marketplace/actions/release-drafter). As pull requests are merged, a draft release is kept up-to-date listing the changes, ready to publish when you’re ready. With the categories option, you can categorize pull requests in release notes using labels.
-
-For Pull Request this labels are configured, by default:
-
-|               **Label**               |  **Title in Releases**  |
-| :-----------------------------------: | :---------------------: |
-|       `enhancement`, `feature`        |       🚀 Features       |
-| `bug`, `refactoring`, `bugfix`, `fix` | 🔧 Fixes & Refactoring  |
-|       `build`, `ci`, `testing`        | 📦 Build System & CI/CD |
-|              `breaking`               |   💥 Breaking Changes   |
-|            `documentation`            |    📝 Documentation     |
-|            `dependencies`             | ⬆️ Dependencies updates |
-
-You can update it in [`release-drafter.yml`](https://github.com/hexfaker/doh/blob/master/.github/release-drafter.yml).
-
-GitHub creates the `bug`, `enhancement`, and `documentation` labels for you. Dependabot creates the `dependencies` label. Create the remaining labels on the Issues tab of your GitHub repository, when you need them.
 
 ## 🛡 License
 
@@ -363,7 +68,7 @@ This project is licensed under the terms of the `GNU GPL v3.0` license. See [LIC
 ```
 @misc{doh,
   author = {Vsevolod Poletaev},
-  title = {Make docker interactive usage less painful},
+  title = {Docker-based development environments},
   year = {2021},
   publisher = {GitHub},
   journal = {GitHub repository},

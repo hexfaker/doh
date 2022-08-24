@@ -37,7 +37,7 @@ def volume_args(config: Config, context: Context) -> List[str]:
 
 
 def get_default_args(config: Config, context: Context) -> List[str]:
-    res = ["--ipc=host", "--pid=host", "--hostname", "context.environment_id"]
+    res = ["--ipc=host", "--pid=host", "--hostname", context.environment_id]
 
     if config.workdir_from_host:
         res += ["--workdir", str(context.project_dir)]

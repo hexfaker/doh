@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "doh"
-version = "0.2.8"
+version = "0.2.10"
 description = "Make docker interactive usage less painful"
 readme = "README.md"
 authors = [

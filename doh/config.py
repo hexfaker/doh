@@ -13,7 +13,7 @@ from pathlib import Path
 import envtoml
 import pydantic
 import toml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from toml import TomlPathlibEncoder
 
 LOG = logging.getLogger(__name__)
@@ -79,6 +79,7 @@ class Config(pydantic.BaseModel):
     fake_home: Optional[FakeHomeParameters] = FakeHomeParameters(
         root=Path("./.doh/home")
     )
+    run_extra_args: List[str] = Field(default_factory=list)
 
     def is_nontrivial(self):
         return len(self.dict(exclude_unset=True)) > 0

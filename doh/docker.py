@@ -96,6 +96,7 @@ def docker_run_args_from_project(
     run_args += get_default_args(config, project)
     run_args += prepare_home_args(config, project)
     run_args += env_args(config, project)
+    run_args += config.run_extra_args
     return run_args
 
 

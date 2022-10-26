@@ -48,7 +48,7 @@ platformdirs = "^2.5.2"
 [tool.poetry.dev-dependencies]
 darglint = "^1.5.8"
 isort = "^5.7.0"
-pyupgrade = "^2.7.4"
+pyupgrade = "^3.1.0"
 black = "^22.3.0"
 mypy = "^0.971"
 safety = "^2.0.0"

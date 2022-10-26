@@ -4,10 +4,12 @@ on: [push, pull_request]
 
 jobs:
   build:
+    env:
+      POETRY_ACTIVATE_PATH: ".local/share/pypoetry/venv/bin/activate"
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
     - uses: actions/checkout@v3
@@ -26,21 +28,21 @@ jobs:
         key: venv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('poetry.lock') }}
     - name: Install dependencies
       run: |
-        source "$HOME/.local/share/pypoetry/venv/bin/activate"
+        source "${HOME}/${POETRY_ACTIVATE_PATH}"
         poetry config virtualenvs.in-project true
         poetry install
 
     - name: Run safety checks
       run: |
-        source "$HOME/.poetry/env"
+        source "${HOME}/${POETRY_ACTIVATE_PATH}"
         STRICT=1 make check-safety
 
     - name: Run style checks
       run: |
-        source "$HOME/.poetry/env"
+        source "${HOME}/${POETRY_ACTIVATE_PATH}"
         STRICT=1 make check-style
 
     - name: Run tests
       run: |
-        source "$HOME/.poetry/env"
+        source "${HOME}/${POETRY_ACTIVATE_PATH}"
         make test

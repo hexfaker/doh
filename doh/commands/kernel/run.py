@@ -1,11 +1,11 @@
-import typing
-from typing import IO, List, TextIO, Tuple
+from typing import IO, List, Tuple
 
 import json
 import os
-from os import PathLike
+import shlex
+import subprocess
 from pathlib import Path
-from tempfile import NamedTemporaryFile, _TemporaryFileWrapper
+from tempfile import NamedTemporaryFile
 
 from doh.config import Context
 from doh.docker import build_image, docker_run_args_from_project, run_docker_run
@@ -55,7 +55,13 @@ def run_kernel(
     if build:
         build_image(project.config, project)
 
+    if project.config.before_command:
+        subprocess.run(shlex.split(project.config.before_command), check=True)
+
     run_args = docker_run_args_from_project(project, request_tty=False)
+
+    if project.config.after_command:
+        subprocess.run(shlex.split(project.config.after_command), check=True)
 
     with NamedTemporaryFile(
         "w",

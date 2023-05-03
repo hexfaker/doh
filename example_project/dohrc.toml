@@ -3,6 +3,8 @@ ssh_port = 22478
 image_build_command = "docker build . -t {image_name}"
 use_local_config = false
 sh_cmd = "bash"
+before_command = "echo start!!!"
+after_command = "echo stop!!!"
 
 [environment]
 

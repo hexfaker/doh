@@ -1,5 +1,7 @@
 from typing import List
 
+import shlex
+import subprocess
 from pathlib import Path
 
 import typer
@@ -32,9 +34,16 @@ def run_ssh_server(context: Context, build: bool) -> None:
         fg=typer.colors.BRIGHT_CYAN,
     )
     cmd = ["/doh/ssh-server"]
+
+    if config.before_command:
+        subprocess.run(shlex.split(config.before_command), check=True)
+
     run_args = docker_run_args_from_project(context)
     run_args += prepare_run_args_for_ssh_server(config, context)
     run_docker_run(run_args, context.image_name, cmd)
+
+    if config.after_command:
+        subprocess.run(shlex.split(config.after_command), check=True)
 
 
 def prepare_run_args_for_ssh_server(

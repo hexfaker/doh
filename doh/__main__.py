@@ -1,6 +1,8 @@
 from typing import List
 
 import logging
+import shlex
+import subprocess
 from pathlib import Path
 
 import typer
@@ -32,9 +34,16 @@ def exec_cmd(
     config = load_final_config(context)
     if build:
         build_image(config, context)
+
+    if context.config.before_command:
+        subprocess.run(shlex.split(context.config.before_command), check=True)
+
     run_docker_run(
         docker_run_args_from_project(context), context.image_name, cmd
     )
+
+    if context.config.after_command:
+        subprocess.run(shlex.split(context.config.after_command), check=True)
 
 
 @app.command(

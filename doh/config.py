@@ -1,11 +1,10 @@
-from typing import Dict, List, NamedTuple, Optional, TypeVar
+from typing import Dict, List, Optional, TypeVar
 
 import collections.abc
 import dataclasses
 import getpass
 import logging
 import socket
-import sys
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
@@ -80,6 +79,8 @@ class Config(pydantic.BaseModel):
         root=Path("./.doh/home")
     )
     run_extra_args: List[str] = Field(default_factory=list)
+    before_command: Optional[str] = None
+    after_command: Optional[str] = None
 
     def is_nontrivial(self):
         return len(self.dict(exclude_unset=True)) > 0

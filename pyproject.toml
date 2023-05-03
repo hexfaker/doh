@@ -43,7 +43,7 @@ pydantic = "^1.7.3"
 toml = "^0.10.2"
 rich = "^12.3.0"
 envtoml = "^0.1.2"
-platformdirs = "^2.5.2"
+platformdirs = "^3.5.0"
 
 [tool.poetry.dev-dependencies]
 darglint = "^1.5.8"

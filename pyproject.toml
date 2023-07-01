@@ -41,7 +41,7 @@ python = "^3.8"
 typer = "^0.6.1"
 pydantic = "^1.7.3"
 toml = "^0.10.2"
-rich = "^12.3.0"
+rich = "^13.4.2"
 envtoml = "^0.1.2"
 platformdirs = "^2.5.2"
 

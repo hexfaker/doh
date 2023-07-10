@@ -11,7 +11,7 @@ def test_ssh_cache(test_env: Env):
 
 
 def test_cache_invalidation(test_env: Env):
-    agent_path = test_env.cache_path / "agent"
+    agent_path = test_env.cache_dir / "agent"
     agent_path.mkdir(parents=True)
 
     server_path = agent_path / "ssh-server"

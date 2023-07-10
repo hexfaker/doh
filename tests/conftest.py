@@ -12,7 +12,7 @@ def context(tmpdir):
 
 
 @fixture(autouse=True)
-def test_env(tmp_path: Path):
+def test_env(tmp_path):
     old = os.environ.get("HOME", None)
     try:
         os.environ["HOME"] = str(tmp_path)

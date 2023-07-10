@@ -1,4 +1,4 @@
-from typing import Any, List, NamedTuple, Sequence, Union
+from typing import Any, List, Union
 
 import logging
 import os
@@ -24,13 +24,11 @@ def user_args():
 
 def volume_args(config: Config, context: Context) -> List[str]:
     volumes: List[Any] = []
-    if context.hostname in config.hosts:
-        host_bind_paths = config.hosts[context.hostname].bind_paths
-        resolved_paths_volumes = [
-            f"{os.path.realpath(source)}:{target}"
-            for source, target in map(lambda s: s.split(":"), host_bind_paths)
-        ]
-        volumes += sum((["--volume", v] for v in resolved_paths_volumes), [])
+    resolved_paths_volumes = [
+        f"{os.path.realpath(source)}:{target}"
+        for source, target in map(lambda s: s.split(":"), config.bind_paths)
+    ]
+    volumes += sum((["--volume", v] for v in resolved_paths_volumes), [])
     volumes += ["--volume", f"{context.project_dir}:{context.project_dir}"]
 
     return volumes

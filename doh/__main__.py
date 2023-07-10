@@ -12,7 +12,7 @@ from doh.commands.init import init
 from doh.commands.ssh import run_ssh_server
 from doh.utils import setup_logging
 
-from .config import Context, load_final_config
+from .config import Context, load_config
 from .docker import build_image, docker_run_args_from_project, run_docker_run
 
 setup_logging()
@@ -31,7 +31,7 @@ def exec_cmd(
     build: bool = True,
 ) -> None:
     context = Context.create_for_cwd()
-    config = load_final_config(context)
+    config = load_config(context)
     if build:
         build_image(config, context)
 
@@ -50,13 +50,13 @@ def exec_cmd(
     name="init",
     help="Creates dohrc.toml if doesn't exist yet, populates it with global and current host section",
 )
-def init_cmd():
-    init(Context.create_for_cwd())
+def init_cmd(root: Path = typer.Argument(Path("."))) -> None:
+    init(Context.create_for_path(root))
 
 
 @app.command()
 def sh():
-    config = load_final_config(Context.create_for_cwd())
+    config = load_config(Context.create_for_cwd())
     exec_cmd([config.sh_cmd])
 
 

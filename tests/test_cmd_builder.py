@@ -1,6 +1,6 @@
 import json
 
-from doh.config import Config, Context
+from doh.config import Context
 from doh.docker import docker_run_args_from_project
 
 
@@ -17,7 +17,7 @@ def test_extra_args(context: Context):
 
 def test_extra_args_empty(context: Context):
     (context.project_dir / "dohrc.toml").write_text(
-        "use_local_config=true"  # Emulate real config without extra args
+        'environment={"TEST"="TEST"}'  # Emulate real config without extra args
     )
 
     docker_run_args_from_project(context)

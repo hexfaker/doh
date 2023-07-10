@@ -17,7 +17,7 @@ def build_cache_key_path() -> Path:
 
 
 def agent_path() -> Path:
-    return Env.get().cache_path / "agent"
+    return Env.get().cache_dir / "agent"
 
 
 def is_cache_valid():

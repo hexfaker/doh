@@ -79,3 +79,5 @@ This project is licensed under the terms of the `GNU GPL v3.0` license. See [LIC
 ## Credits
 
 This project was generated with [`python-package-template`](https://github.com/TezRomacH/python-package-template).
+
+https://github.com/kojiromike/parameter-expansion

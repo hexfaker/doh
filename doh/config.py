@@ -1,21 +1,32 @@
-from typing import Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional, Set, Tuple, TypeVar
 
 import collections.abc
 import dataclasses
 import getpass
 import logging
+import os
 import socket
-from enum import Enum
 from functools import cached_property
 from pathlib import Path
 
-import envtoml
+import dotenv
 import pydantic
 import toml
-from pydantic import BaseModel, Field
+from dotenv.variables import parse_variables
+from pydantic import BaseModel, Extra, Field
 from toml import TomlPathlibEncoder
 
+from .env import Env
+
 LOG = logging.getLogger(__name__)
+
+LOCAL_ENV_NAME = "doh.local.env"
+MAIN_ENV_NAME = "doh.env"
+
+MAIN_CONF_NAME = "dohrc.toml"
+LOCAL_CONF_NAME = "dohrc.local.toml"
+
+TOML_DECODER = toml.TomlDecoder()
 
 
 def dict_merge(*args, add_keys=True):
@@ -58,22 +69,23 @@ def merge_models(m1: _ModelType, m2: _ModelType) -> _ModelType:
     return m1.construct(**dm)
 
 
-class Parameters(pydantic.BaseModel):
-    bind_paths: List[str] = []
-
-
 class FakeHomeParameters(BaseModel):
     root: Path = Path(".doh/home")
     real_paths: List[str] = []
 
 
+class ConfigPart(BaseModel):
+    class Config:
+        extra = Extra.ignore
+
+    extra_config_paths: List[Path] = pydantic.Field(default_factory=list)
+
+
 class Config(pydantic.BaseModel):
-    hosts: Dict[str, Parameters] = {}
     workdir_from_host: bool = True
-    ssh_port: int = 0
+    ssh_port: Optional[int] = None
     image_build_command: str = "docker build . -t {image_name}"
-    use_local_config: bool = False
-    environment: Dict[str, str] = {}
+    environment: Dict[str, str] = pydantic.Field(default_factory=dict)
     sh_cmd: str = "bash"
     fake_home: Optional[FakeHomeParameters] = FakeHomeParameters(
         root=Path("./.doh/home")
@@ -81,6 +93,8 @@ class Config(pydantic.BaseModel):
     run_extra_args: List[str] = Field(default_factory=list)
     before_command: Optional[str] = None
     after_command: Optional[str] = None
+    bind_paths: List[str] = []
+    extra_config_paths: List[Path] = pydantic.Field(default_factory=list)
 
     def is_nontrivial(self):
         return len(self.dict(exclude_unset=True)) > 0
@@ -103,7 +117,7 @@ class Context:
 
     @cached_property
     def config(self):
-        return load_final_config(self)
+        return load_config(self)
 
     @classmethod
     def create_for_path(cls, path: Path) -> "Context":
@@ -115,88 +129,136 @@ class Context:
         return cls.create_for_path(Path.cwd())
 
 
-class ConfigType(Enum):
-    LOCAL = "dohrc.local.toml"
-    GLOBAL = "dohrc.toml"
-    FULL = None
+def _load_env(project: Context) -> Dict[str, str]:
+    env: Dict[str, Optional[str]] = {
+        "HOSTNAME": project.hostname,
+        "USER": project.username,
+        "DOH_PROJECT_ROOT": str(project.project_dir),
+        "DOH_ENVIRONMENT_ID": project.environment_id,
+        "DOH_PROJECT_NAME": project.project_name,
+    }
 
-    def __init__(self, file_name: Optional[str] = None):
-        self._file_name = file_name
+    paths = [
+        Env.get().config_dir / MAIN_ENV_NAME,
+        project.project_dir / MAIN_ENV_NAME,
+        project.project_dir / LOCAL_ENV_NAME,
+    ]
 
-    def file_name(self):
-        if self._file_name is not None:
-            return self._file_name
-        raise NotImplemented
-
-
-def load_config(
-    context: Context,
-    type: ConfigType = ConfigType.FULL,
-    interpolate_env: bool = True,
-) -> Config:
-    if interpolate_env:
-        load_fn = envtoml.load
-    else:
-        load_fn = toml.load
-
-    if type in [ConfigType.FULL, ConfigType.GLOBAL]:
-        conf_path = context.project_dir / ConfigType.GLOBAL.file_name()
-        if conf_path.is_file():
-            config = Config.construct(**load_fn(conf_path))
+    for p in paths:
+        if p.exists():
+            env.update(dotenv.dotenv_values(p))
+            LOG.debug("Loaded %s, current env=%s", str(p), env)
         else:
-            config = Config()
+            LOG.debug("%s not found, skipping", str(p))
 
-    if (
-        type == ConfigType.FULL and config.use_local_config
-    ) or type == ConfigType.LOCAL:
-        conf_path = context.project_dir / ConfigType.LOCAL.file_name()
-        if conf_path.is_file():
-            local_config = Config.construct(**load_fn(conf_path))
-        else:
-            local_config = Config()
+    env.update(os.environ)
 
-        if type == ConfigType.LOCAL:
-            config = local_config
-        else:
-            config = merge_models(config, local_config)
-
-    if type == ConfigType.FULL:
-        config = Config.parse_obj(config.dict(exclude_unset=True))
-
-    LOG.debug(config)
-
-    return config
+    return {k: v for k, v in env.items() if v is not None}
 
 
-def load_final_config(
-    context: Context,
-) -> Config:
-    config = load_config(context)
+def _load_part(
+    current_config: Config, part_path: Path, env: Dict[str, str]
+) -> Tuple[Config, List[Path]]:
+    LOG.debug("Current config=%s env=%s", current_config, env)
+    if not part_path.exists():
+        LOG.debug("Config %s not exist", part_path)
+        return current_config, []
 
-    if "all" not in config.hosts:
-        config.hosts["all"] = Parameters()
+    LOG.debug("Loading %s", part_path)
 
-    if context.hostname in config.hosts:
-        config.hosts["all"] = merge_models(
-            config.hosts["all"], config.hosts[context.hostname]
+    part_dict = toml.load(part_path)
+
+    part_dict = _expand_env_deep(part_dict, env)
+
+    LOG.debug("Loaded %s: %s", part_path, part_dict)
+    part = ConfigPart.parse_obj(part_dict)
+    current_config = merge_models(current_config, Config.construct(**part_dict))
+    extra_paths = part.extra_config_paths
+    return current_config, extra_paths
+
+
+def load_config(project: Context) -> Config:
+    final_config = Config()
+    paths_to_load = {
+        Env.get().config_dir / "rc.toml",
+        project.project_dir / MAIN_CONF_NAME,
+    }
+    env = _load_env(project)
+
+    paths_loaded: Set[Path] = set()
+
+    LOG.debug("Config loading started")
+
+    while paths_loaded != paths_to_load:
+        diff = paths_to_load - paths_loaded
+
+        # filter from original list to preserve order
+        next_paths = [p for p in paths_to_load if p in diff]
+
+        for part_path in next_paths:
+            final_config, extra_paths = _load_part(final_config, part_path, env)
+            LOG.debug("More config paths %s", extra_paths)
+            extra_paths = [
+                p if p.is_absolute() else project.project_dir / p
+                for p in extra_paths
+            ]
+            paths_to_load.update(extra_paths)
+
+        paths_loaded.update(diff)
+
+    final_config, extra_paths = _load_part(
+        final_config, project.project_dir / LOCAL_CONF_NAME, env
+    )
+
+    if len(extra_paths) > 0:
+        LOG.warning(
+            "dohrc.local.toml contains some extra paths. They will be ignored"
         )
 
-    config.hosts[context.hostname] = config.hosts["all"]
-
-    return config
+    LOG.debug(
+        "Config loading completed: config=%s. Validating...", final_config
+    )
+    final_config = Config.parse_obj(final_config.dict())
+    LOG.debug("Final config: config=%s", final_config)
+    return final_config
 
 
 class TomlConfigEncoder(TomlPathlibEncoder):  # type: ignore
     pass
 
 
-def save_config(context: Context, config: Config, type: ConfigType) -> None:
-    conf_path = context.project_dir / type.file_name()
+def save_config(
+    config: Config, path: Path, non_default_only: bool = True
+) -> None:
+    dct = config.dict(exclude_defaults=non_default_only)
 
-    if type == ConfigType.GLOBAL:
-        dct = config.dict()
-    else:
-        dct = config.dict(exclude_defaults=True)
-
-    with conf_path.open("w") as f:
+    with path.open("w") as f:
         toml.dump(dct, f, encoder=TomlConfigEncoder())
+
+
+def _expand_env_deep(item, env, parse=True):
+    if isinstance(item, str):
+        item = _expand_env(env, item)
+
+        if not parse:
+            return item
+
+        # Try parsing result string value into something else
+        try:
+            item, _ = TOML_DECODER.load_value(item)
+        except ValueError:
+            pass
+        return item
+    elif isinstance(item, dict):
+        return {
+            _expand_env_deep(k, env, parse=False): _expand_env_deep(v, env)
+            for k, v in item.items()
+        }
+    elif isinstance(item, list):
+        return [_expand_env_deep(v, env) for v in item]
+    else:
+        return item
+
+
+def _expand_env(env, item):
+    return "".join(atom.resolve(env) for atom in parse_variables(item))
